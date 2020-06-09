@@ -12,38 +12,22 @@ class Store extends BaseStore {
     super(config)
 
     const {
+      secretAccessKey,
       accessKeyId,
       assetHost,
       bucket,
-      pathPrefix,
-      region,
-      secretAccessKey,
-      endpoint,
-      serverSideEncryption,
-      forcePathStyle,
-      signatureVersion,
-      acl
+      region
     } = config
 
     // Compatible with the aws-sdk's default environment variables
     this.accessKeyId = accessKeyId
     this.secretAccessKey = secretAccessKey
-    this.region = process.env.AWS_DEFAULT_REGION || region
-
-    this.bucket = process.env.GHOST_STORAGE_ADAPTER_S3_PATH_BUCKET || bucket
-
-    // Optional configurations
-    this.host = process.env.GHOST_STORAGE_ADAPTER_S3_ASSET_HOST || assetHost || `https://s3${this.region === 'us-east-1' ? '' : `-${this.region}`}.amazonaws.com/${this.bucket}`
-    this.pathPrefix = stripLeadingSlash(process.env.GHOST_STORAGE_ADAPTER_S3_PATH_PREFIX || pathPrefix || '')
-    this.endpoint = process.env.GHOST_STORAGE_ADAPTER_S3_ENDPOINT || endpoint || ''
-    this.serverSideEncryption = process.env.GHOST_STORAGE_ADAPTER_S3_SSE || serverSideEncryption || ''
-    this.s3ForcePathStyle = Boolean(process.env.GHOST_STORAGE_ADAPTER_S3_FORCE_PATH_STYLE) || Boolean(forcePathStyle) || false
-    this.signatureVersion = process.env.GHOST_STORAGE_ADAPTER_S3_SIGNATURE_VERSION || signatureVersion || 'v4'
-    this.acl = process.env.GHOST_STORAGE_ADAPTER_S3_ACL || acl || 'public-read'
+    this.region = region
+    this.bucket = bucket
   }
 
   delete (fileName, targetDir) {
-    const directory = targetDir || this.getTargetDir(this.pathPrefix)
+    const directory = targetDir || this.getTargetDir('')
 
     return new Promise((resolve, reject) => {
       this.s3()
@@ -68,23 +52,15 @@ class Store extends BaseStore {
     const options = {
       bucket: this.bucket,
       region: this.region,
-      signatureVersion: this.signatureVersion,
-      s3ForcePathStyle: this.s3ForcePathStyle
+      signatureVersion: 'v4',
+      s3ForcePathStyle: false
     }
-
-    // Set credentials only if provided, falls back to AWS SDK's default provider chain
-    if (this.accessKeyId && this.secretAccessKey) {
-      options.credentials = new AWS.Credentials(this.accessKeyId, this.secretAccessKey)
-    }
-
-    if (this.endpoint !== '') {
-      options.endpoint = this.endpoint
-    }
+    options.credentials = new AWS.Credentials(this.accessKeyId, this.secretAccessKey)
     return new AWS.S3(options)
   }
 
   save (image, targetDir) {
-    const directory = targetDir || this.getTargetDir(this.pathPrefix)
+    const directory = targetDir || this.getTargetDir('')
 
     return new Promise((resolve, reject) => {
       Promise.all([
@@ -92,18 +68,16 @@ class Store extends BaseStore {
         readFileAsync(image.path)
       ]).then(([ fileName, file ]) => {
         let config = {
-          ACL: this.acl,
+          ACL: 'private',
           Body: file,
           Bucket: this.bucket,
           CacheControl: `max-age=${30 * 24 * 60 * 60}`,
           ContentType: image.type,
           Key: stripLeadingSlash(fileName)
         }
-        if (this.serverSideEncryption !== '') {
-          config.ServerSideEncryption = this.serverSideEncryption
-        }
+
         this.s3()
-          .putObject(config, (err, data) => err ? reject(err) : resolve(`${this.host}/${fileName}`))
+          .putObject(config, (err, data) => err ? reject(err) : resolve(`/content/images/${fileName}`))
       })
       .catch(err => reject(err))
     })
@@ -114,9 +88,11 @@ class Store extends BaseStore {
       this.s3()
         .getObject({
           Bucket: this.bucket,
-          Key: stripLeadingSlash(stripEndingSlash(this.pathPrefix) + req.path)
+          Key: stripLeadingSlash(req.path)
         })
-        .on('httpHeaders', (statusCode, headers, response) => res.set(headers))
+        .on('httpHeaders', (statusCode, headers, response) => {
+			res.set(headers)
+		})
         .createReadStream()
         .on('error', err => {
           res.status(404)
@@ -128,15 +104,16 @@ class Store extends BaseStore {
   read (options) {
     options = options || {}
 
+
     return new Promise((resolve, reject) => {
       // remove trailing slashes
       let path = (options.path || '').replace(/\/$|\\$/, '')
 
       // check if path is stored in s3 handled by us
-      if (!path.startsWith(this.host)) {
+      if (!path.startsWith('/content/images/')) {
         reject(new Error(`${path} is not stored in s3`))
       }
-      path = path.substring(this.host.length)
+      path = path.substring('/content/images/'.length)
 
       this.s3()
         .getObject({

@@ -26,11 +26,6 @@
   "bugs": {
     "url": "https://github.com/colinmeinke/ghost-storage-adapter-s3/issues"
   },
-  "config": {
-    "commitizen": {
-      "path": "node_modules/cz-conventional-changelog"
-    }
-  },
   "dependencies": {
     "aws-sdk": "^2.331.0",
     "ghost-storage-base": "0.0.1"
@@ -40,13 +35,7 @@
     "babel-cli": "^6.14.0",
     "babel-plugin-add-module-exports": "^0.2.1",
     "babel-plugin-transform-object-rest-spread": "^6.8.0",
-    "babel-preset-env": "^1.6.0",
-    "commitizen": "^2.8.6",
-    "cz-conventional-changelog": "^1.2.0",
-    "semantic-release": "^15.9.9",
-    "snazzy": "^5.0.0",
-    "standard": "^8.3.0",
-    "travis-deploy-once": "^5.0.2"
+    "babel-preset-env": "^1.6.0"
   },
   "homepage": "https://github.com/colinmeinke/ghost-storage-adapter-s3#readme",
   "license": "ISC",
@@ -65,13 +54,7 @@
   },
   "scripts": {
     "build": "babel ./src/index.js --out-file ./index.js",
-    "commit": "git-cz",
-    "fix": "standard --fix",
-    "lint": "standard --verbose | snazzy",
-    "prepublish": "npm run build",
-    "semantic-release": "semantic-release",
-    "test": "exit 0",
-    "travis-deploy-once": "travis-deploy-once"
+    "prepublish": "npm run build"
   },
   "version": "0.0.0-development"
 }
