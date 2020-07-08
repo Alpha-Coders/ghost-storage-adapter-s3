@@ -7,6 +7,8 @@ const readFileAsync = fp => new Promise((resolve, reject) => readFile(fp, (err, 
 const stripLeadingSlash = s => s.indexOf('/') === 0 ? s.substring(1) : s
 const stripEndingSlash = s => s.indexOf('/') === (s.length - 1) ? s.substring(0, s.length - 1) : s
 
+var mime = require('mime-types');
+
 class Store extends BaseStore {
     constructor (config = {}) {
         super(config)
@@ -43,7 +45,7 @@ class Store extends BaseStore {
             this.s3()
             .headObject({
             Bucket: this.bucket,
-            Key: stripLeadingSlash(join(targetDir, fileName))
+            Key: stripLeadingSlash(fileName)
             }, (err) => err ? resolve(false) : resolve(true))
         })
     }
@@ -59,6 +61,20 @@ class Store extends BaseStore {
         return new AWS.S3(options)
     }
     
+    saveRaw(buffer, targetPath) {
+        return new Promise((resolve, reject) => {
+            let config = {
+            ACL: 'private',
+            Body: buffer,
+            Bucket: this.bucket,
+            CacheControl: `max-age=${30 * 24 * 60 * 60}`,
+            ContentType: mime.lookup(targetPath),
+            Key: stripLeadingSlash(targetPath)
+            }
+            this.s3()
+            .putObject(config, (err, data) => err ? reject(err) : resolve(`/content/images/${targetPath}`))
+        })
+    }
     save (image, targetDir) {
         const directory = targetDir || this.getTargetDir('')
         
@@ -108,13 +124,6 @@ class Store extends BaseStore {
         return new Promise((resolve, reject) => {
             // remove trailing slashes
             let path = (options.path || '').replace(/\/$|\\$/, '')
-            
-            // check if path is stored in s3 handled by us
-            if (!path.startsWith('/content/images/')) {
-                reject(new Error(`${path} is not stored in s3`))
-            }
-            path = path.substring('/content/images/'.length)
-            
             this.s3()
             .getObject({
             Bucket: this.bucket,

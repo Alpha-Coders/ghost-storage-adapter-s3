@@ -28,7 +28,8 @@
   },
   "dependencies": {
     "aws-sdk": "^2.331.0",
-    "ghost-storage-base": "0.0.1"
+    "ghost-storage-base": "0.0.1",
+    "mime-types": "^2.1.27"
   },
   "description": "An AWS S3 storage adapter for Ghost 0.10+",
   "devDependencies": {
